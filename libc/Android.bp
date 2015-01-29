@@ -61,7 +61,6 @@ cc_defaults {
     cppflags: [],
     include_dirs: [
         "bionic/libc/async_safe/include",
-        "external/jemalloc/include",
     ],
 
     stl: "none",
@@ -1662,7 +1661,6 @@ cc_library_static {
         "libc_syscalls",
         "libc_tzcode",
         "libm",
-        "libjemalloc",
         "libstdc++",
     ],
 }
@@ -1741,7 +1739,7 @@ cc_library_static {
 // ========================================================
 cc_library_static {
     defaults: ["libc_defaults"],
-    srcs: ["bionic/jemalloc_wrapper.cpp"],
+    srcs: ["bionic/omalloc.c"],
     cflags: ["-fvisibility=hidden"],
 
     name: "libc_malloc",
@@ -1800,7 +1798,7 @@ cc_library {
     // you wanted!
 
     shared_libs: ["libdl"],
-    whole_static_libs: ["libc_common", "libjemalloc"],
+    whole_static_libs: ["libc_common"],
 
     nocrt: true,
 
