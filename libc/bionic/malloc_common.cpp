@@ -41,13 +41,14 @@
 //                          get_malloc_leak_info.
 
 #include <pthread.h>
+#include <stdlib.h>
 
 #include <private/bionic_config.h>
 #include <private/bionic_globals.h>
 #include <private/bionic_malloc_dispatch.h>
 
-#include "jemalloc.h"
-#define Malloc(function)  je_ ## function
+#include "omalloc.h"
+#define Malloc(function)  o_ ## function
 
 static constexpr MallocDispatch __libc_malloc_default_dispatch
   __attribute__((unused)) = {
@@ -65,9 +66,9 @@ static constexpr MallocDispatch __libc_malloc_default_dispatch
 #if defined(HAVE_DEPRECATED_MALLOC_FUNCS)
     Malloc(valloc),
 #endif
-    Malloc(iterate),
-    Malloc(malloc_disable),
-    Malloc(malloc_enable),
+    nullptr, // iterate
+    nullptr, // malloc_disable
+    nullptr, // malloc_enable
     Malloc(mallopt),
     Malloc(aligned_alloc),
   };
@@ -478,7 +479,8 @@ extern "C" int malloc_iterate(uintptr_t base, size_t size,
   if (__predict_false(_iterate != nullptr)) {
     return _iterate(base, size, callback, arg);
   }
-  return Malloc(iterate)(base, size, callback, arg);
+  async_safe_format_log(ANDROID_LOG_ERROR, "libc", "%s: malloc_iterate is not implemented", getprogname());
+  abort();
 }
 
 // Disable calls to malloc so malloc_iterate gets a consistent view of
@@ -488,7 +490,8 @@ extern "C" void malloc_disable() {
   if (__predict_false(_malloc_disable != nullptr)) {
     return _malloc_disable();
   }
-  return Malloc(malloc_disable)();
+  async_safe_format_log(ANDROID_LOG_ERROR, "libc", "%s: malloc_disable is not implemented", getprogname());
+  abort();
 }
 
 // Re-enable calls to malloc after a previous call to malloc_disable.
@@ -497,7 +500,8 @@ extern "C" void malloc_enable() {
   if (__predict_false(_malloc_enable != nullptr)) {
     return _malloc_enable();
   }
-  return Malloc(malloc_enable)();
+  async_safe_format_log(ANDROID_LOG_ERROR, "libc", "%s: malloc_enable is not implemented", getprogname());
+  abort();
 }
 
 #ifndef LIBC_STATIC
