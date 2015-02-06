@@ -117,6 +117,7 @@ int setresuid(uid_t __ruid, uid_t __euid, uid_t __suid);
 int setresgid(gid_t __rgid, gid_t __egid, gid_t __sgid);
 int getresuid(uid_t* __ruid, uid_t* __euid, uid_t* __suid);
 int getresgid(gid_t* __rgid, gid_t* __egid, gid_t* __sgid);
+int issetugid(void);
 char* getlogin(void);
 
 long fpathconf(int __fd, int __name);
