@@ -1347,6 +1347,7 @@ cc_library_static {
         "bionic/ifaddrs.cpp",
         "bionic/inotify_init.cpp",
         "bionic/ioctl.cpp",
+        "bionic/issetugid.cpp",
         "bionic/killpg.cpp",
         "bionic/langinfo.cpp",
         "bionic/lchown.cpp",

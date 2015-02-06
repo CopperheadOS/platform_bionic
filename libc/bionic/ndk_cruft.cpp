@@ -267,11 +267,6 @@ int getdents(unsigned int fd, dirent* dirp, unsigned int count) {
   return __getdents64(fd, dirp, count);
 }
 
-// This is a BSDism that we never implemented correctly. Used by Firefox.
-int issetugid() {
-  return 0;
-}
-
 // This was removed from POSIX 2004.
 pid_t wait3(int* status, int options, struct rusage* rusage) {
   return wait4(-1, status, options, rusage);
