@@ -1319,6 +1319,7 @@ cc_library_static {
         "bionic/eventfd_read.cpp",
         "bionic/eventfd_write.cpp",
         "bionic/exec.cpp",
+        "bionic/explicit_memset.cpp",
         "bionic/faccessat.cpp",
         "bionic/fchmod.cpp",
         "bionic/fchmodat.cpp",

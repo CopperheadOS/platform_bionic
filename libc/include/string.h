@@ -56,6 +56,7 @@ void* mempcpy(void* __dst, const void* __src, size_t __n) __INTRODUCED_IN(23);
 #endif
 void* memmove(void* __dst, const void* __src, size_t __n);
 void* memset(void* __dst, int __ch, size_t __n);
+void* explicit_memset(void *s, int c, size_t n);
 void* memmem(const void* __haystack, size_t __haystack_size, const void* __needle, size_t __needle_size) __attribute_pure__;
 
 char* strchr(const char* __s, int __ch) __attribute_pure__;
