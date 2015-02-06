@@ -60,6 +60,7 @@ void* mempcpy(void* _Nonnull __restrict, const void* _Nonnull __restrict, size_t
 void* memmove(void* _Nonnull, const void* _Nonnull, size_t) __overloadable
         __RENAME_CLANG(memmove);
 void* memset(void* _Nonnull, int, size_t) __overloadable __RENAME_CLANG(memset);
+void* explicit_memset(void *s, int c, size_t n);
 void* memmem(const void* _Nonnull, size_t, const void* _Nonnull, size_t) __attribute_pure__;
 
 char* strchr(const char* _Nonnull, int) __attribute_pure__ __overloadable
