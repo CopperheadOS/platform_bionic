@@ -29,48 +29,16 @@
 #include <errno.h>
 #include <unistd.h>
 
-#if defined(__LP64__)
-static void* __bionic_brk;
-#else
-void* __bionic_brk; // Accidentally exported by the NDK.
+#if !defined(__LP64__)
+void* __bionic_brk = reinterpret_cast<void*>(-1); // Accidentally exported by the NDK.
 #endif
 
-extern "C" void* __brk(void* __addr);
-
-int brk(void* end_data) {
-  __bionic_brk = __brk(end_data);
-  if (__bionic_brk < end_data) {
-    errno = ENOMEM;
-    return -1;
-  }
-  return 0;
+int brk(void*) {
+  errno = ENOMEM;
+  return -1;
 }
 
-void* sbrk(ptrdiff_t increment) {
-  // Initialize __bionic_brk if necessary.
-  if (__bionic_brk == NULL) {
-    __bionic_brk = __brk(NULL);
-  }
-
-  // Don't ask the kernel if we already know the answer.
-  if (increment == 0) {
-    return __bionic_brk;
-  }
-
-  // Avoid overflow.
-  uintptr_t old_brk = reinterpret_cast<uintptr_t>(__bionic_brk);
-  if ((increment > 0 && static_cast<uintptr_t>(increment) > (UINTPTR_MAX - old_brk)) ||
-      (increment < 0 && static_cast<uintptr_t>(-increment) > old_brk)) {
-    errno = ENOMEM;
-    return reinterpret_cast<void*>(-1);
-  }
-
-  void* desired_brk = reinterpret_cast<void*>(old_brk + increment);
-  __bionic_brk = __brk(desired_brk);
-  if (__bionic_brk < desired_brk) {
-    errno = ENOMEM;
-    return reinterpret_cast<void*>(-1);
-  }
-
-  return reinterpret_cast<void*>(old_brk);
+void* sbrk(ptrdiff_t) {
+  errno = ENOMEM;
+  return reinterpret_cast<void*>(-1);
 }
