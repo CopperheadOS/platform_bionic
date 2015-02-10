@@ -645,6 +645,33 @@ omalloc_parseopt(char opt)
 	}
 }
 
+void
+_malloc_pre_fork(void)
+{
+	int i;
+	for (i = 0; i < _MALLOC_MUTEXES; i++)
+		pthread_mutex_lock(&_malloc_lock[i]);
+}
+
+void
+_malloc_post_fork_parent(void)
+{
+	int i;
+	for (i = 0; i < _MALLOC_MUTEXES; i++)
+		pthread_mutex_unlock(&_malloc_lock[i]);
+}
+
+void
+_malloc_post_fork_child(void)
+{
+	int i, rc;
+	for (i = 0; i < _MALLOC_MUTEXES; i++) {
+		rc = pthread_mutex_init(&_malloc_lock[i], NULL);
+		if (rc)
+			async_safe_fatal("pthread_mutex_init: %s", strerror(rc));
+	}
+}
+
 static void
 omalloc_init(void)
 {
