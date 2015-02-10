@@ -54,6 +54,9 @@
 
 extern "C" abort_msg_t** __abort_message_ptr;
 extern "C" int __system_properties_init(void);
+extern "C" void _malloc_pre_fork(void);
+extern "C" void _malloc_post_fork_parent(void);
+extern "C" void _malloc_post_fork_child(void);
 
 __LIBC_HIDDEN__ WriteProtected<libc_globals> __libc_globals;
 
@@ -130,6 +133,8 @@ void __libc_init_common(KernelArgumentBlock& args) {
 
   // Register atfork handlers to take and release the arc4random lock.
   pthread_atfork(arc4random_fork_handler, _thread_arc4_unlock, _thread_arc4_unlock);
+
+  pthread_atfork(&_malloc_pre_fork, &_malloc_post_fork_parent, &_malloc_post_fork_child);
 
   __system_properties_init(); // Requires 'environ'.
 }
