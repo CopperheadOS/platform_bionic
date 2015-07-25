@@ -49,6 +49,7 @@
 #include "malloc_info.h"
 #include "omalloc.h"
 #include "private/bionic_config.h"
+#include "private/bionic_prctl.h"
 
 extern char *__progname;
 
@@ -711,6 +712,14 @@ omalloc_poolinit(struct dir_info **dp)
 	d = (struct dir_info *)(p + MALLOC_PAGESIZE +
 	    (arc4random_uniform(d_avail) * alignof(struct dir_info)));
 
+	prctl(PR_SET_VMA, PR_SET_VMA_ANON_NAME, p, MALLOC_PAGESIZE,
+	    "malloc dir_info guard page");
+	prctl(PR_SET_VMA, PR_SET_VMA_ANON_NAME, p + MALLOC_PAGESIZE,
+	    DIR_INFO_RSZ, "malloc dir_info");
+	prctl(PR_SET_VMA, PR_SET_VMA_ANON_NAME,
+	    p + MALLOC_PAGESIZE + DIR_INFO_RSZ, MALLOC_PAGESIZE,
+	    "malloc dir_info guard page");
+
 	rbytes_init(d);
 	d->regions_free = d->regions_total = MALLOC_INITIAL_REGIONS;
 	regioninfo_size = d->regions_total * sizeof(struct region_info);
@@ -719,6 +728,10 @@ omalloc_poolinit(struct dir_info **dp)
 		d->regions_total = 0;
 		wrterror(NULL, "malloc init mmap failed", NULL);
 	}
+
+	prctl(PR_SET_VMA, PR_SET_VMA_ANON_NAME, d->r, regioninfo_size,
+	    "malloc region_info hash table");
+
 	for (i = 0; i <= (int)MALLOC_MAXSHIFT; i++) {
 		LIST_INIT(&d->chunk_info_list[i]);
 		for (j = 0; j < MALLOC_CHUNK_LISTS; j++)
@@ -750,6 +763,9 @@ omalloc_grow(struct dir_info *d)
 	p = MMAP(newsize);
 	if (p == MAP_FAILED)
 		return 1;
+
+	prctl(PR_SET_VMA, PR_SET_VMA_ANON_NAME, p, newsize,
+	    "malloc region_info hash table");
 
 	STATS_ADD(d->malloc_used, newsize);
 	STATS_ZERO(d->inserts);
@@ -800,6 +816,10 @@ alloc_chunk_info(struct dir_info *d, int bits)
 		q = MMAP(MALLOC_PAGESIZE);
 		if (q == MAP_FAILED)
 			return NULL;
+
+		prctl(PR_SET_VMA, PR_SET_VMA_ANON_NAME, q, PAGE_SIZE,
+		    "malloc chunk_info");
+
 		STATS_ADD(d->malloc_used, MALLOC_PAGESIZE);
 		count = MALLOC_PAGESIZE / size;
 		for (i = 0; i < (int)count; i++, q += size)
