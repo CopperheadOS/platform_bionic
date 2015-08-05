@@ -34,6 +34,7 @@
 #include <errno.h>
 #include <limits.h>
 #include <pthread.h>
+#include <stdalign.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -706,9 +707,9 @@ omalloc_poolinit(struct dir_info **dp)
 	mprotect(p, MALLOC_PAGESIZE, PROT_NONE);
 	mprotect(p + MALLOC_PAGESIZE + DIR_INFO_RSZ,
 	    MALLOC_PAGESIZE, PROT_NONE);
-	d_avail = (DIR_INFO_RSZ - sizeof(*d)) >> MALLOC_MINSHIFT;
+	d_avail = (DIR_INFO_RSZ - sizeof(*d)) / alignof(struct dir_info);
 	d = (struct dir_info *)(p + MALLOC_PAGESIZE +
-	    (arc4random_uniform(d_avail) << MALLOC_MINSHIFT));
+	    (arc4random_uniform(d_avail) * alignof(struct dir_info)));
 
 	rbytes_init(d);
 	d->regions_free = d->regions_total = MALLOC_INITIAL_REGIONS;
