@@ -46,6 +46,8 @@
 #include <fcntl.h>
 #endif
 
+#include <async_safe/log.h>
+
 #include "malloc_info.h"
 #include "omalloc.h"
 #include "private/bionic_config.h"
@@ -332,7 +334,7 @@ wrterror(struct dir_info *d, char *msg, void *p)
 
 	errno = saved_errno;
 
-	abort();
+	async_safe_fatal("%s %s %p", d->func, msg, p);
 }
 
 static void
