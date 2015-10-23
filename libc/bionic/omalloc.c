@@ -207,6 +207,7 @@ struct malloc_readonly {
 	int	malloc_freeunmap;	/* mprotect free pages PROT_NONE? */
 	int	malloc_hint;		/* call madvice on free pages?  */
 	int	malloc_junk;		/* junk fill? */
+	int	malloc_validate_full;	/* full junk validation */
 	int	malloc_move;		/* move allocations to end of page? */
 	int	malloc_realloc;		/* always realloc? */
 	int	malloc_xmalloc;		/* xmalloc behaviour? */
@@ -238,6 +239,8 @@ static void malloc_exit(void);
 #else
 #define CALLER	NULL
 #endif
+
+static void validate_delayed_chunks(void);
 
 /* low bits of r->p determine size: 0 means >= page size and p->size holding
  *  real size, otherwise r->size is a shift count, or 1 for malloc(0)
@@ -584,6 +587,12 @@ omalloc_parseopt(char opt)
 		if (mopts.malloc_junk < 2)
 			mopts.malloc_junk++;
 		break;
+	case 'v':
+		mopts.malloc_validate_full = 0;
+		break;
+	case 'V':
+		mopts.malloc_validate_full = 1;
+		break;
 	case 'n':
 	case 'N':
 		break;
@@ -658,12 +667,12 @@ omalloc_init(void)
 		for (; p != NULL && *p != '\0'; p++) {
 			switch (*p) {
 			case 'S':
-				for (q = "CGJ"; *q != '\0'; q++)
+				for (q = "CGJV"; *q != '\0'; q++)
 					omalloc_parseopt(*q);
 				mopts.malloc_cache = 0;
 				break;
 			case 's':
-				for (q = "cgj"; *q != '\0'; q++)
+				for (q = "cgjv"; *q != '\0'; q++)
 					omalloc_parseopt(*q);
 				mopts.malloc_cache = MALLOC_DEFAULT_CACHE;
 				break;
@@ -681,6 +690,12 @@ omalloc_init(void)
 		write(STDERR_FILENO, q, sizeof(q) - 1);
 	}
 #endif /* MALLOC_STATS */
+
+	if (mopts.malloc_junk && (atexit(validate_delayed_chunks) == -1)) {
+		static const char q[] = "malloc() warning: atexit(2) failed."
+		    " Will not be able to check for use after free\n";
+		write(STDERR_FILENO, q, sizeof(q) - 1);
+	}
 
 	while ((mopts.malloc_canary = arc4random()) == 0)
 		;
@@ -1326,11 +1341,27 @@ validate_junk(struct dir_info *pool, void *p) {
 	REALSIZE(sz, r);
 	if (sz > 0 && sz <= MALLOC_MAXCHUNK)
 		sz -= mopts.malloc_canaries;
-	if (sz > 32)
+	if (!mopts.malloc_validate_full && sz > 32)
 		sz = 32;
 	for (byte = 0; byte < sz; byte++) {
 		if (((unsigned char *)p)[byte] != SOME_FREEJUNK)
 			wrterror(pool, "use after free", p);
+	}
+}
+
+static void
+validate_delayed_chunks(void)
+{
+	int i, j;
+	for (i = 0; i < _MALLOC_MUTEXES; i++) {
+		struct dir_info *pool = mopts.malloc_pool[i];
+		if (pool == NULL)
+			continue;
+		_MALLOC_LOCK(pool->mutex);
+		pool->func = "validate_delayed_chunks():";
+		for (j = 0; j < MALLOC_DELAYED_CHUNK_MASK + 1; j++)
+			validate_junk(pool, pool->delayed_chunks[j]);
+		_MALLOC_UNLOCK(pool->mutex);
 	}
 }
 
