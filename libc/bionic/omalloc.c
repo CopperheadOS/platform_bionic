@@ -215,7 +215,8 @@ struct malloc_readonly {
 	int	malloc_freenow;		/* Free quickly - disable chunk rnd */
 	int	malloc_freeunmap;	/* mprotect free pages PROT_NONE? */
 	int	malloc_hint;		/* call madvice on free pages?  */
-	int	malloc_junk;		/* junk fill? */
+	int	malloc_junk_init;	/* initialize to junk? */
+	int	malloc_junk;		/* junk fill on free? */
 	int	malloc_validate_full;	/* full junk validation */
 	int	malloc_move;		/* move allocations to end of page? */
 	int	malloc_realloc;		/* always realloc? */
@@ -596,6 +597,12 @@ omalloc_parseopt(char opt)
 		if (mopts.malloc_junk < 2)
 			mopts.malloc_junk++;
 		break;
+	case 'i':
+		mopts.malloc_junk_init = 0;
+		break;
+	case 'I':
+		mopts.malloc_junk_init = 1;
+		break;
 	case 'v':
 		mopts.malloc_validate_full = 0;
 		break;
@@ -676,12 +683,12 @@ omalloc_init(void)
 		for (; p != NULL && *p != '\0'; p++) {
 			switch (*p) {
 			case 'S':
-				for (q = "CGJV"; *q != '\0'; q++)
+				for (q = "CGIJV"; *q != '\0'; q++)
 					omalloc_parseopt(*q);
 				mopts.malloc_cache = 0;
 				break;
 			case 's':
-				for (q = "cgjv"; *q != '\0'; q++)
+				for (q = "cgijv"; *q != '\0'; q++)
 					omalloc_parseopt(*q);
 				mopts.malloc_cache = MALLOC_DEFAULT_CACHE;
 				break;
@@ -1103,7 +1110,7 @@ malloc_bytes(struct dir_info *d, size_t size, __unused void *f)
 		*canary = mopts.malloc_chunk_canary ^ hash(canary);
 	}
 
-	if (mopts.malloc_junk == 2 && bp->size > 0)
+	if (mopts.malloc_junk_init && bp->size > 0)
 		memset((char *)bp->page + k, SOME_JUNK,
 		    bp->size - mopts.malloc_canaries);
 	return ((char *)bp->page + k);
@@ -1220,16 +1227,16 @@ omalloc(struct dir_info *pool, size_t sz, int zero_fill, void *f)
 		    sz - mopts.malloc_guard < MALLOC_PAGESIZE -
 		    MALLOC_LEEWAY) {
 			/* fill whole allocation */
-			if (mopts.malloc_junk == 2)
+			if (mopts.malloc_junk_init)
 				memset(p, SOME_JUNK, psz - mopts.malloc_guard);
 			/* shift towards the end */
 			p = ((char *)p) + ((MALLOC_PAGESIZE - MALLOC_LEEWAY -
 			    (sz - mopts.malloc_guard)) & ~(MALLOC_MINSIZE-1));
 			/* fill zeros if needed and overwritten above */
-			if (zero_fill && mopts.malloc_junk == 2)
+			if (zero_fill && mopts.malloc_junk_init)
 				memset(p, 0, sz - mopts.malloc_guard);
 		} else {
-			if (mopts.malloc_junk == 2) {
+			if (mopts.malloc_junk_init) {
 				if (zero_fill)
 					memset((char *)p + sz - mopts.malloc_guard,
 					    SOME_JUNK, psz - sz);
@@ -1560,7 +1567,7 @@ orealloc(struct dir_info *argpool, void *p, size_t newsz, void *f)
 				if (mremap(p, roldsz, rnewsz, 0) != MAP_FAILED) {
 gotit:
 					STATS_ADD(pool->malloc_used, needed);
-					if (mopts.malloc_junk == 2)
+					if (mopts.malloc_junk_init)
 						memset(hint, SOME_JUNK, needed);
 					r->size = newsz;
 					STATS_SETF(r, f);
@@ -1586,7 +1593,7 @@ gotit:
 			ret = p;
 			goto done;
 		} else {
-			if (newsz > oldsz && mopts.malloc_junk == 2)
+			if (newsz > oldsz && mopts.malloc_junk_init)
 				memset((char *)p + newsz, SOME_JUNK,
 				    rnewsz - mopts.malloc_guard - newsz);
 			r->size = gnewsz;
@@ -1596,7 +1603,7 @@ gotit:
 		}
 	}
 	if (newsz <= oldsz && newsz > oldsz / 2 && !mopts.malloc_realloc) {
-		if (mopts.malloc_junk == 2 && newsz > 0) {
+		if (mopts.malloc_junk_init && newsz > 0) {
 			size_t usable_oldsz = oldsz;
 			if (oldsz <= MALLOC_MAXCHUNK)
 				usable_oldsz -= mopts.malloc_canaries;
@@ -1789,7 +1796,7 @@ omemalign(struct dir_info *pool, size_t alignment, size_t sz, int zero_fill, voi
 		STATS_ADD(pool->malloc_guarded, mopts.malloc_guard);
 	}
 
-	if (mopts.malloc_junk == 2) {
+	if (mopts.malloc_junk_init) {
 		if (zero_fill)
 			memset((char *)p + sz - mopts.malloc_guard,
 			    SOME_JUNK, psz - sz);
