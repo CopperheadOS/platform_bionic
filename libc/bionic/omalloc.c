@@ -53,6 +53,15 @@
 #include "private/bionic_config.h"
 #include "private/bionic_prctl.h"
 
+extern void *__dso_handle;
+extern int __cxa_atexit(void (*)(void *), void *, void *);
+
+static void atexit_handler_wrapper(void *func) {
+	(*(void (*)(void))func)();
+}
+
+#define atexit(func) (__cxa_atexit(atexit_handler_wrapper, func, &__dso_handle))
+
 extern char *__progname;
 
 static pthread_mutex_t _malloc_lock[] = {
