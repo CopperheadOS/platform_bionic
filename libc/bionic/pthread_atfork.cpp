@@ -29,6 +29,8 @@
 #include <errno.h>
 #include <pthread.h>
 #include <stdlib.h>
+#include <sys/mman.h>
+#include <unistd.h>
 
 #include "private/bionic_macros.h"
 
@@ -42,6 +44,8 @@ struct atfork_t {
 
   void* dso_handle;
 };
+
+static atfork_t* pool;
 
 class atfork_list_t {
  public:
@@ -101,7 +105,8 @@ class atfork_list_t {
       last_ = entry->prev;
     }
 
-    free(entry);
+    entry->next = pool;
+    pool = entry;
   }
 
   atfork_t* first_;
@@ -154,17 +159,31 @@ void __bionic_atfork_run_parent() {
 // __register_atfork is the name used by glibc
 extern "C" int __register_atfork(void (*prepare)(void), void (*parent)(void),
                                  void(*child)(void), void* dso) {
-  atfork_t* entry = reinterpret_cast<atfork_t*>(malloc(sizeof(atfork_t)));
-  if (entry == nullptr) {
-    return ENOMEM;
+  pthread_mutex_lock(&g_atfork_list_mutex);
+
+  if (!pool) {
+    size_t page_size = getpagesize();
+    char* page = static_cast<char*>(mmap(NULL, page_size, PROT_READ|PROT_WRITE,
+                                         MAP_ANONYMOUS|MAP_PRIVATE, -1, 0));
+    if (page == MAP_FAILED) {
+      pthread_mutex_unlock(&g_atfork_list_mutex);
+      return ENOMEM;
+    }
+
+    for (char* it = page; it < page + page_size - sizeof(atfork_t); it += sizeof(atfork_t)) {
+      atfork_t* node = (atfork_t*)it;
+      node->next = pool;
+      pool = node;
+    }
   }
+
+  atfork_t* entry = pool;
+  pool = entry->next;
 
   entry->prepare = prepare;
   entry->parent = parent;
   entry->child = child;
   entry->dso_handle = dso;
-
-  pthread_mutex_lock(&g_atfork_list_mutex);
 
   g_atfork_list.push_back(entry);
 
