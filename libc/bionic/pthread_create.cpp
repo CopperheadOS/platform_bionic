@@ -29,6 +29,7 @@
 #include <pthread.h>
 
 #include <errno.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
 #include <unistd.h>
@@ -136,11 +137,10 @@ int __init_thread(pthread_internal_t* thread) {
   return error;
 }
 
-static void* __create_thread_mapped_space(size_t mmap_size, size_t stack_guard_size) {
+static void* __create_thread_mapped_space(size_t mmap_size, size_t stack_guard_size, size_t gap_size) {
   // Create a new private anonymous map.
-  int prot = PROT_READ | PROT_WRITE;
   int flags = MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE;
-  void* space = mmap(NULL, mmap_size, prot, flags, -1, 0);
+  void* space = mmap(nullptr, mmap_size, PROT_NONE, flags, -1, 0);
   if (space == MAP_FAILED) {
     async_safe_format_log(ANDROID_LOG_WARN,
                       "libc",
@@ -151,7 +151,13 @@ static void* __create_thread_mapped_space(size_t mmap_size, size_t stack_guard_s
 
   // Stack is at the lower end of mapped space, stack guard region is at the lower end of stack.
   // Set the stack guard region to PROT_NONE, so we can detect thread stack overflow.
-  if (mprotect(space, stack_guard_size, PROT_NONE) == -1) {
+  //
+  // Make the usable portion of the stack between the guard region and random gap readable and
+  // writable.
+  size_t stack_size = mmap_size - gap_size;
+  size_t usable_size = stack_size - stack_guard_size;
+  void *guard_boundary = reinterpret_cast<uint8_t*>(space) + stack_guard_size;
+  if (mprotect(guard_boundary, usable_size, PROT_READ | PROT_WRITE) == -1) {
     async_safe_format_log(ANDROID_LOG_WARN, "libc",
                           "pthread_create failed: couldn't mprotect PROT_NONE %zu-byte stack guard region: %s",
                           stack_guard_size, strerror(errno));
@@ -159,6 +165,8 @@ static void* __create_thread_mapped_space(size_t mmap_size, size_t stack_guard_s
     return NULL;
   }
   prctl(PR_SET_VMA, PR_SET_VMA_ANON_NAME, space, stack_guard_size, "thread stack guard page");
+  void* random_gap = reinterpret_cast<uint8_t*>(space) + stack_size;
+  prctl(PR_SET_VMA, PR_SET_VMA_ANON_NAME, random_gap, gap_size, "thread stack random gap");
 
   return space;
 }
@@ -169,14 +177,39 @@ static int __allocate_thread(pthread_attr_t* attr, pthread_internal_t** threadp,
 
   if (attr->stack_base == NULL) {
     // The caller didn't provide a stack, so allocate one.
+
+    // Place a randomly sized gap above the stack, up to 10% as large as the stack
+    // on 32-bit and 50% on 64-bit where virtual memory is plentiful.
+#if __LP64__
+    size_t max_gap_size = attr->stack_size / 2;
+#else
+    size_t max_gap_size = attr->stack_size / 10;
+#endif
+
+    size_t gap_size = BIONIC_ALIGN_DOWN(arc4random_uniform(max_gap_size), PAGE_SIZE);
+
     // Make sure the stack size and guard size are multiples of PAGE_SIZE.
-    mmap_size = BIONIC_ALIGN(attr->stack_size + sizeof(pthread_internal_t), PAGE_SIZE);
+    size_t stack_size = BIONIC_ALIGN(attr->stack_size + sizeof(pthread_internal_t) + PAGE_SIZE, PAGE_SIZE);
+    mmap_size = stack_size + gap_size;
+    if (mmap_size < stack_size) {
+      return EAGAIN; // overflow
+    }
+
     attr->guard_size = BIONIC_ALIGN(attr->guard_size, PAGE_SIZE);
-    attr->stack_base = __create_thread_mapped_space(mmap_size, attr->guard_size);
+    attr->stack_base = __create_thread_mapped_space(mmap_size, attr->guard_size, gap_size);
     if (attr->stack_base == NULL) {
       return EAGAIN;
     }
-    stack_top = reinterpret_cast<uint8_t*>(attr->stack_base) + mmap_size;
+    stack_top = reinterpret_cast<uint8_t*>(attr->stack_base) + stack_size;
+
+    // Choose a random base within the first page of the stack. Waste no more than
+    // 1% of the available stack space.
+    size_t max_random_base_size = attr->stack_size / 100;
+    if (max_random_base_size > PAGE_SIZE - 1) {
+      max_random_base_size = PAGE_SIZE - 1;
+    }
+    size_t random_base_size = arc4random_uniform(max_random_base_size);
+    stack_top -= random_base_size;
   } else {
     // Remember the mmap size is zero and we don't need to free it.
     mmap_size = 0;
