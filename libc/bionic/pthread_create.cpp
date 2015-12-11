@@ -207,7 +207,7 @@ static int __allocate_thread(pthread_attr_t* attr, pthread_internal_t** threadp,
     size_t max_gap_size = attr->stack_size / 10;
 #endif
 
-    size_t gap_size = BIONIC_ALIGN_DOWN(arc4random_uniform(max_gap_size), PAGE_SIZE);
+    size_t gap_size = BIONIC_ALIGN_DOWN(arc4random_uniform(max_gap_size), PAGE_SIZE) + PAGE_SIZE;
 
     // Make sure the stack size and guard size are multiples of PAGE_SIZE.
     if (__builtin_add_overflow(attr->stack_size, attr->guard_size, &stack_size)) return EAGAIN;
