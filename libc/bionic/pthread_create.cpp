@@ -186,7 +186,7 @@ static int __allocate_thread(pthread_attr_t* attr, pthread_internal_t** threadp,
     size_t max_gap_size = attr->stack_size / 10;
 #endif
 
-    size_t gap_size = BIONIC_ALIGN_DOWN(arc4random_uniform(max_gap_size), PAGE_SIZE);
+    size_t gap_size = BIONIC_ALIGN_DOWN(arc4random_uniform(max_gap_size), PAGE_SIZE) + PAGE_SIZE;
 
     // Make sure the stack size and guard size are multiples of PAGE_SIZE.
     size_t stack_size = BIONIC_ALIGN(attr->stack_size + sizeof(pthread_internal_t) + PAGE_SIZE, PAGE_SIZE);
