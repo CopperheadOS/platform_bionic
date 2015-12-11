@@ -91,6 +91,7 @@ static void __pthread_internal_free(pthread_internal_t* thread) {
     // Free mapped space, including thread stack and pthread_internal_t.
     munmap(thread->attr.stack_base, thread->mmap_size);
   }
+  munmap(thread, sizeof(pthread_internal_t));
 }
 
 void __pthread_internal_remove_and_free(pthread_internal_t* thread) {

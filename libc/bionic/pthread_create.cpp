@@ -211,7 +211,7 @@ static int __allocate_thread(pthread_attr_t* attr, pthread_internal_t** threadp,
 
     // Make sure the stack size and guard size are multiples of PAGE_SIZE.
     if (__builtin_add_overflow(attr->stack_size, attr->guard_size, &stack_size)) return EAGAIN;
-    if (__builtin_add_overflow(stack_size, sizeof(pthread_internal_t) + PAGE_SIZE, &stack_size)) return EAGAIN;
+    if (__builtin_add_overflow(stack_size, PAGE_SIZE, &stack_size)) return EAGAIN;
     stack_size = __BIONIC_ALIGN(stack_size, PAGE_SIZE);
     mmap_size = stack_size + gap_size;
     attr->guard_size = __BIONIC_ALIGN(attr->guard_size, PAGE_SIZE);
@@ -240,21 +240,23 @@ static int __allocate_thread(pthread_attr_t* attr, pthread_internal_t** threadp,
   //   thread stack (including guard)
 
   // To safely access the pthread_internal_t and thread stack, we need to find a 16-byte aligned boundary.
-  stack_top = reinterpret_cast<uint8_t*>(
-                (reinterpret_cast<uintptr_t>(stack_top) - sizeof(pthread_internal_t)) & ~0xf);
+  stack_top = reinterpret_cast<uint8_t*>(reinterpret_cast<uintptr_t>(stack_top) & ~0xf);
 
-  pthread_internal_t* thread = reinterpret_cast<pthread_internal_t*>(stack_top);
-  if (mmap_size == 0) {
-    // If thread was not allocated by mmap(), it may not have been cleared to zero.
-    // So assume the worst and zero it.
-    memset(thread, 0, sizeof(pthread_internal_t));
+  pthread_internal_t* thread = static_cast<pthread_internal_t*>(
+      mmap(nullptr, sizeof(pthread_internal_t), PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS,
+           -1, 0));
+  if (thread == MAP_FAILED) {
+    munmap(attr->stack_base, mmap_size);
+    return EAGAIN;
   }
+  prctl(PR_SET_VMA, PR_SET_VMA_ANON_NAME, thread, sizeof(pthread_internal_t), "pthread_internal_t");
   attr->stack_size = stack_top - reinterpret_cast<uint8_t*>(attr->stack_base);
 
   thread->mmap_size = mmap_size;
   thread->attr = *attr;
   if (!__init_tls(thread)) {
     if (thread->mmap_size != 0) munmap(thread->attr.stack_base, thread->mmap_size);
+    munmap(thread, sizeof(pthread_internal_t));
     return EAGAIN;
   }
   __init_thread_stack_guard(thread);
@@ -343,6 +345,7 @@ int pthread_create(pthread_t* thread_out, pthread_attr_t const* attr,
     if (thread->mmap_size != 0) {
       munmap(thread->attr.stack_base, thread->mmap_size);
     }
+    munmap(thread, sizeof(pthread_internal_t));
     async_safe_format_log(ANDROID_LOG_WARN, "libc", "pthread_create failed: clone failed: %s",
                           strerror(clone_errno));
     return clone_errno;
