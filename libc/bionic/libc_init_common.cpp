@@ -45,6 +45,7 @@
 
 #include "private/KernelArgumentBlock.h"
 #include "private/WriteProtected.h"
+#include "private/bionic_arc4random.h"
 #include "private/bionic_auxv.h"
 #include "private/bionic_defs.h"
 #include "private/bionic_globals.h"
@@ -91,6 +92,11 @@ void __libc_init_globals(KernelArgumentBlock& args) {
   __libc_globals.mutate([&args](libc_globals* globals) {
     __libc_init_vdso(globals, args);
     __libc_init_setjmp_cookie(globals, args);
+    if (__libc_arc4random_has_unlimited_entropy()) {
+      arc4random_buf(&globals->dtor_cookie, sizeof(globals->dtor_cookie));
+    } else {
+      globals->dtor_cookie = globals->setjmp_cookie;
+    }
   });
 }
 

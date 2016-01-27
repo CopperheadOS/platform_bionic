@@ -37,6 +37,7 @@
 
 struct libc_globals {
   vdso_entry vdso[VDSO_END];
+  long dtor_cookie;
   long setjmp_cookie;
   MallocDispatch malloc_dispatch;
 };
