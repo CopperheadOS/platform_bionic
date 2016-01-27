@@ -14,12 +14,14 @@
  * limitations under the License.
  */
 #include <sys/cdefs.h>
+#include <stdint.h>
 
+#include "private/bionic_globals.h"
 #include "pthread_internal.h"
 
 class thread_local_dtor {
  public:
-  void (*func) (void *);
+  uintptr_t func;
   void *arg;
   void *dso_handle; // unused...
   thread_local_dtor* next;
@@ -28,7 +30,7 @@ class thread_local_dtor {
 extern "C" int __cxa_thread_atexit_impl(void (*func) (void *), void *arg, void *dso_handle) {
   thread_local_dtor* dtor = new thread_local_dtor();
 
-  dtor->func = func;
+  dtor->func = __libc_globals->dtor_cookie ^ reinterpret_cast<uintptr_t>(func);
   dtor->arg = arg;
   dtor->dso_handle = dso_handle;
 
@@ -44,7 +46,7 @@ extern "C" __LIBC_HIDDEN__ void __cxa_thread_finalize() {
     thread_local_dtor* current = thread->thread_local_dtors;
     thread->thread_local_dtors = current->next;
 
-    current->func(current->arg);
+    (reinterpret_cast<void (*)(void*)>(__libc_globals->dtor_cookie ^ current->func))(current->arg);
     delete current;
   }
 }
