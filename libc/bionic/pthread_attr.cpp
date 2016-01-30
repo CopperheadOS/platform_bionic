@@ -53,7 +53,7 @@ int pthread_attr_init(pthread_attr_t* attr) {
 
 __BIONIC_WEAK_FOR_NATIVE_BRIDGE
 int pthread_attr_destroy(pthread_attr_t* attr) {
-  memset(attr, 0x42, sizeof(pthread_attr_t));
+  memset(attr, 0xdf, sizeof(pthread_attr_t));
   return 0;
 }
 
