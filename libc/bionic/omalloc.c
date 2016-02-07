@@ -206,7 +206,7 @@ struct chunk_info {
 	u_short free;			/* how many free chunks */
 	u_short total;			/* how many chunks */
 					/* which chunks are free */
-	u_short bits[1];
+	u_short bits[];
 };
 
 struct malloc_readonly {
@@ -866,7 +866,7 @@ alloc_chunk_info(struct dir_info *d, int bits)
 		count = MALLOC_PAGESIZE >> bits;
 
 	size = howmany(count, MALLOC_BITS);
-	size = sizeof(struct chunk_info) + (size - 1) * sizeof(u_short);
+	size = sizeof(struct chunk_info) + size * sizeof(u_short);
 	size = ALIGN(size);
 
 	if (LIST_EMPTY(&d->chunk_info_list[bits])) {
