@@ -158,6 +158,7 @@ struct dir_info {
 	struct region_info free_regions[MALLOC_MAXCACHE];
 					/* delayed free chunk slots */
 	void *delayed_chunks[MALLOC_DELAYED_CHUNK_MASK + 1];
+	void *delayed_chunks_set[(MALLOC_DELAYED_CHUNK_MASK + 1) * 4];
 	size_t rbytesused;		/* random bytes used */
 	char *func;			/* current function */
 	int mutex;
@@ -284,6 +285,22 @@ hash(void *p)
 	uintptr_t u;
 
 	u = (uintptr_t)p >> MALLOC_PAGESHIFT;
+	sum = u;
+	sum = (sum << 7) - sum + (u >> 16);
+#ifdef __LP64__
+	sum = (sum << 7) - sum + (u >> 32);
+	sum = (sum << 7) - sum + (u >> 48);
+#endif
+	return sum;
+}
+
+static inline size_t
+hash_chunk(void *p)
+{
+	size_t sum;
+	uintptr_t u;
+
+	u = (uintptr_t)p >> MALLOC_MINSHIFT;
 	sum = u;
 	sum = (sum << 7) - sum + (u >> 16);
 #ifdef __LP64__
@@ -984,6 +1001,56 @@ delete(struct dir_info *d, struct region_info *ri)
 	}
 }
 
+void delayed_chunks_insert(struct dir_info *d, void *p)
+{
+	size_t index;
+	size_t mask = sizeof(d->delayed_chunks_set) / sizeof(void *) - 1;
+	void *q;
+
+	index = hash_chunk(p) & mask;
+	q = d->delayed_chunks_set[index];
+	while (q != NULL) {
+		if (p == q)
+			wrterror(d, "double free", p);
+		index = (index - 1) & mask;
+		q = d->delayed_chunks_set[index];
+	}
+	d->delayed_chunks_set[index] = p;
+}
+
+void delayed_chunks_delete(struct dir_info *d, void *p)
+{
+	size_t mask = sizeof(d->delayed_chunks_set) / sizeof(void *) - 1;
+	size_t i, j, r;
+	void *q;
+
+	i = hash_chunk(p) & mask;
+	q = d->delayed_chunks_set[i];
+	while (q != p) {
+		if (q == NULL)
+			wrterror(d, "pointer missing from address tracking table", p);
+		i = (i - 1) & mask;
+		q = d->delayed_chunks_set[i];
+	}
+
+	for (;;) {
+		d->delayed_chunks_set[i] = NULL;
+		j = i;
+		for (;;) {
+			i = (i - 1) & mask;
+			if (d->delayed_chunks_set[i] == NULL)
+				return;
+			r = hash_chunk(d->delayed_chunks_set[i]) & mask;
+			if ((i <= r && r < j) || (r < j && j < i) ||
+			    (j < i && i <= r))
+				continue;
+			d->delayed_chunks_set[j] = d->delayed_chunks_set[i];
+			break;
+		}
+	}
+}
+
+
 /*
  * Allocate a page of chunks
  */
@@ -1475,11 +1542,21 @@ ofree(struct dir_info *argpool, void *p)
 		if (!mopts.malloc_freenow) {
 			if (find_chunknum(pool, r, p) == (uint32_t)-1)
 				goto done;
+
+			if (p == NULL)
+				goto done;
+
+			delayed_chunks_insert(pool, p);
+
 			i = getrbyte(pool) & MALLOC_DELAYED_CHUNK_MASK;
 			tmp = p;
 			p = pool->delayed_chunks[i];
-			if (tmp == p)
-				wrterror(pool, "double free", p);
+
+			if (p == NULL)
+				goto done;
+
+			delayed_chunks_delete(pool, p);
+
 			if (mopts.malloc_junk)
 				validate_junk(pool, p);
 			pool->delayed_chunks[i] = tmp;
@@ -2265,6 +2342,7 @@ malloc_dump(int fd, struct dir_info *pool)
 		r = find(pool, p);
 		if (r == NULL)
 			wrterror(pool, "bogus pointer in malloc_dump", p);
+		delayed_chunks_delete(pool, p);
 		free_bytes(pool, r, p);
 		pool->delayed_chunks[i] = NULL;
 	}
