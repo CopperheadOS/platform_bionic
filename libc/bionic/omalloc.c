@@ -731,12 +731,10 @@ omalloc_init(void)
 			case 'S':
 				for (q = "CGIJV"; *q != '\0'; q++)
 					omalloc_parseopt(*q);
-				mopts.malloc_cache = 0;
 				break;
 			case 's':
 				for (q = "cgijv"; *q != '\0'; q++)
 					omalloc_parseopt(*q);
-				mopts.malloc_cache = MALLOC_DEFAULT_CACHE;
 				break;
 			default:
 				omalloc_parseopt(*p);
