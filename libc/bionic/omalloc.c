@@ -1201,7 +1201,7 @@ malloc_bytes(struct dir_info *d, size_t size, __unused void *f)
 	if (mopts.malloc_canaries && bp->size > 0) {
 		char *end = (char *)bp->page + k + bp->size;
 		uintptr_t *canary = (uintptr_t *)(end - mopts.malloc_canaries);
-		*canary = mopts.malloc_chunk_canary ^ hash(canary);
+		*canary = mopts.malloc_chunk_canary ^ hash_chunk(canary);
 	}
 
 	if (mopts.malloc_junk_init && bp->size > 0)
@@ -1223,7 +1223,7 @@ find_chunknum(struct dir_info *d, struct region_info *r, void *ptr)
 	if (mopts.malloc_canaries && info->size > 0) {
 		char *end = (char *)ptr + info->size;
 		uintptr_t *canary = (uintptr_t *)(end - mopts.malloc_canaries);
-		if (*canary != (mopts.malloc_chunk_canary ^ hash(canary)))
+		if (*canary != (mopts.malloc_chunk_canary ^ hash_chunk(canary)))
 			wrterror(d, "chunk canary corrupted", ptr);
 	}
 
