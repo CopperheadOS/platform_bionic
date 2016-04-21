@@ -158,9 +158,10 @@ struct dir_info {
 	struct region_info free_regions[MALLOC_MAXCACHE];
 					/* delayed free chunk slots */
 	size_t queue_index;
-	void *delayed_chunks[MALLOC_DELAYED_CHUNK_MASK + 1];
-	void *delayed_chunks_queue[MALLOC_DELAYED_CHUNK_MASK + 1];
-	void *delayed_chunks_set[(MALLOC_DELAYED_CHUNK_MASK + 1) * 4];
+	void **delayed_chunks;
+	void **delayed_chunks_queue;
+	void **delayed_chunks_set;
+
 	size_t rbytesused;		/* random bytes used */
 	char *func;			/* current function */
 	int mutex;
@@ -232,6 +233,7 @@ struct malloc_readonly {
 #endif
 	u_int32_t malloc_canary;	/* Matched against ones in malloc_pool */
 	uintptr_t malloc_chunk_canary;
+	size_t delayed_chunk_size;
 };
 
 /* This object is mapped PROT_READ after initialisation to prevent tampering */
@@ -570,6 +572,14 @@ omalloc_parseopt(char opt)
 	case '<':
 		mopts.malloc_cache >>= 1;
 		break;
+	case '+':
+		mopts.delayed_chunk_size <<= 1;
+		if (mopts.delayed_chunk_size > UCHAR_MAX + 1)
+			mopts.delayed_chunk_size = UCHAR_MAX + 1;
+		break;
+	case '-':
+		mopts.delayed_chunk_size >>= 1;
+		break;
 	case 'a':
 	case 'A':
 		/* ignored */
@@ -589,11 +599,11 @@ omalloc_parseopt(char opt)
 		break;
 #endif /* MALLOC_STATS */
 	case 'f':
-		mopts.malloc_freenow = 0;
+		mopts.delayed_chunk_size = MALLOC_DELAYED_CHUNK_MASK + 1;
 		mopts.malloc_freeunmap = 0;
 		break;
 	case 'F':
-		mopts.malloc_freenow = 1;
+		mopts.delayed_chunk_size = 0;
 		mopts.malloc_freeunmap = 1;
 		break;
 	case 'g':
@@ -703,6 +713,7 @@ omalloc_init(void)
 	mopts.malloc_junk = 1;
 	mopts.malloc_move = 1;
 	mopts.malloc_cache = MALLOC_DEFAULT_CACHE;
+	mopts.delayed_chunk_size = MALLOC_DELAYED_CHUNK_MASK + 1;
 
 	for (i = 0; i < 3; i++) {
 		switch (i) {
@@ -819,6 +830,14 @@ omalloc_poolinit(struct dir_info **dp)
 	d->canary2 = ~d->canary1;
 
 	*dp = d;
+
+	if (mopts.delayed_chunk_size) {
+		d->delayed_chunks = MMAP(mopts.delayed_chunk_size * 6 * sizeof(void *));
+		if (d->delayed_chunks == MAP_FAILED)
+			wrterror(NULL, "malloc init mmap failed", NULL);
+		d->delayed_chunks_queue = d->delayed_chunks + mopts.delayed_chunk_size;
+		d->delayed_chunks_set = d->delayed_chunks_queue + mopts.delayed_chunk_size;
+	}
 }
 
 static int
@@ -1004,7 +1023,7 @@ delete(struct dir_info *d, struct region_info *ri)
 void delayed_chunks_insert(struct dir_info *d, void *p)
 {
 	size_t index;
-	size_t mask = sizeof(d->delayed_chunks_set) / sizeof(void *) - 1;
+	size_t mask = mopts.delayed_chunk_size * 4 - 1;
 	void *q;
 
 	index = hash_chunk(p) & mask;
@@ -1020,7 +1039,7 @@ void delayed_chunks_insert(struct dir_info *d, void *p)
 
 void delayed_chunks_delete(struct dir_info *d, void *p)
 {
-	size_t mask = sizeof(d->delayed_chunks_set) / sizeof(void *) - 1;
+	size_t mask = mopts.delayed_chunk_size * 4 - 1;
 	size_t i, j, r;
 	void *q;
 
@@ -1462,14 +1481,15 @@ validate_junk(struct dir_info *pool, void *p) {
 static void
 validate_delayed_chunks(void)
 {
-	int i, j;
+	int i;
+	size_t j;
 	for (i = 0; i < _MALLOC_MUTEXES; i++) {
 		struct dir_info *pool = mopts.malloc_pool[i];
 		if (pool == NULL)
 			continue;
 		_MALLOC_LOCK(pool->mutex);
 		pool->func = "validate_delayed_chunks():";
-		for (j = 0; j < MALLOC_DELAYED_CHUNK_MASK + 1; j++) {
+		for (j = 0; j < mopts.delayed_chunk_size; j++) {
 			validate_junk(pool, pool->delayed_chunks[j]);
 			validate_junk(pool, pool->delayed_chunks_queue[j]);
 		}
@@ -1541,7 +1561,7 @@ ofree(struct dir_info *argpool, void *p)
 
 		if (mopts.malloc_junk && sz > 0)
 			memset(p, SOME_FREEJUNK, sz - mopts.malloc_canaries);
-		if (!mopts.malloc_freenow) {
+		if (mopts.delayed_chunk_size) {
 			if (find_chunknum(pool, r, p) == (uint32_t)-1)
 				goto done;
 
@@ -1550,7 +1570,7 @@ ofree(struct dir_info *argpool, void *p)
 
 			delayed_chunks_insert(pool, p);
 
-			i = getrbyte(pool) & MALLOC_DELAYED_CHUNK_MASK;
+			i = getrbyte(pool) & (mopts.delayed_chunk_size - 1);
 			tmp = p;
 			p = pool->delayed_chunks[i];
 			pool->delayed_chunks[i] = tmp;
@@ -1562,7 +1582,7 @@ ofree(struct dir_info *argpool, void *p)
 			p = pool->delayed_chunks_queue[pool->queue_index];
 			pool->delayed_chunks_queue[pool->queue_index] = tmp;
 			pool->queue_index++;
-			pool->queue_index &= MALLOC_DELAYED_CHUNK_MASK;
+			pool->queue_index &= mopts.delayed_chunk_size - 1;
 
 			if (p == NULL)
 				goto done;
@@ -2339,14 +2359,14 @@ malloc_dump1(int fd, struct dir_info *d)
 void
 malloc_dump(int fd, struct dir_info *pool)
 {
-	int i;
+	size_t i;
 	void *p;
 	struct region_info *r;
 	int saved_errno = errno;
 
 	if (pool == NULL)
 		return;
-	for (i = 0; i < MALLOC_DELAYED_CHUNK_MASK + 1; i++) {
+	for (i = 0; i < mopts.delayed_chunk_size; i++) {
 		p = pool->delayed_chunks[i];
 		if (p == NULL)
 			continue;
