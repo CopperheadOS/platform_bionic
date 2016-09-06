@@ -1699,7 +1699,11 @@ orealloc(struct dir_info *argpool, void *p, size_t newsz, void *f)
 				if (q == hint)
 					goto gotit;
 				zapcacheregion(pool, hint, needed);
+#if 0
 				if (mremap(p, roldsz, rnewsz, 0) != MAP_FAILED) {
+#else
+				if (0) {
+#endif
 gotit:
 					STATS_ADD(pool->malloc_used, needed);
 					if (mopts.malloc_junk_init)
