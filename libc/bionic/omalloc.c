@@ -1918,6 +1918,9 @@ omemalign(struct dir_info *pool, size_t alignment, size_t sz, int zero_fill, voi
 		return NULL;
 	}
 
+	if (sz < MALLOC_PAGESIZE)
+		sz = MALLOC_PAGESIZE;
+
 	sz += mopts.malloc_guard;
 	psz = PAGEROUND(sz);
 
