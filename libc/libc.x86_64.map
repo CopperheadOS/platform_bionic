@@ -13,6 +13,7 @@ LIBC {
     __dn_comp;
     __dn_count_labels;
     __dn_skipname;
+    __dynamic_object_size;
     __errno;
     __fbufsize; # introduced=23
     __FD_CLR_chk; # introduced=21

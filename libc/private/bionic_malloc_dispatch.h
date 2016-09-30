@@ -59,6 +59,7 @@ struct MallocDispatch {
   MallocMallinfo mallinfo;
   MallocMalloc malloc;
   MallocMallocUsableSize malloc_usable_size;
+  MallocMallocUsableSize __malloc_object_size;
   MallocMemalign memalign;
   MallocPosixMemalign posix_memalign;
 #if defined(HAVE_DEPRECATED_MALLOC_FUNCS)
