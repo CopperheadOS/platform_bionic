@@ -15,6 +15,7 @@ void *o_memalign(size_t boundary, size_t size);
 void *o_valloc(size_t size);
 void *o_pvalloc(size_t size);
 size_t o_malloc_usable_size(const void *p);
+size_t o___malloc_object_size(const void *p);
 struct mallinfo o_mallinfo(void);
 int o_mallopt(int, int);
 __END_DECLS

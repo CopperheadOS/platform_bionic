@@ -28,6 +28,7 @@
 
 #include "linker_allocator.h"
 
+#include <limits.h>
 #include <stdlib.h>
 #include <sys/cdefs.h>
 #include <unistd.h>
@@ -83,3 +84,6 @@ void free(void* ptr) {
   get_allocator().free(ptr);
 }
 
+extern "C" size_t __malloc_object_size(const void*) {
+  return SIZE_MAX;
+}

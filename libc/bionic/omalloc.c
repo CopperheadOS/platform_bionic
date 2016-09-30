@@ -2119,6 +2119,103 @@ o_malloc_usable_size(const void *p)
 	return ret;
 }
 
+static size_t
+omalloc_object_size(struct dir_info *argpool, void *p)
+{
+	struct dir_info *pool;
+	struct region_info *r;
+	size_t ret, sz;
+	int i;
+
+	pool = argpool;
+	r = find(pool, p);
+	if (r == NULL) {
+		if (mopts.malloc_mt)  {
+			for (i = 0; i < _MALLOC_MUTEXES; i++) {
+				if (i == argpool->mutex)
+					continue;
+				pool->active--;
+				_MALLOC_UNLOCK(pool->mutex);
+				pool = mopts.malloc_pool[i];
+				_MALLOC_LOCK(pool->mutex);
+				pool->active++;
+				r = find(pool, p);
+				if (r != NULL)
+					break;
+			}
+		}
+		if (r == NULL) {
+			ret = __BIONIC_FORTIFY_UNKNOWN_SIZE;
+			goto done;
+		}
+	}
+
+	REALSIZE(sz, r);
+
+	if (sz == 0) {
+		ret = sz;
+		goto done;
+	}
+
+	if (sz <= MALLOC_MAXCHUNK) {
+		uintptr_t base = (uintptr_t)p & ~(sz - 1);
+		size_t offset = (uintptr_t)p - base;
+		ret = sz - mopts.malloc_canaries - offset;
+		goto done;
+	}
+
+	uintptr_t base = (uintptr_t)p & ~MALLOC_PAGEMASK;
+	if (mopts.malloc_move &&
+	    sz - mopts.malloc_guard < MALLOC_PAGESIZE -
+	    MALLOC_LEEWAY) {
+		base = base + ((MALLOC_PAGESIZE - MALLOC_LEEWAY -
+		    (sz - mopts.malloc_guard)) & ~(MALLOC_MINSIZE-1));
+	}
+
+	size_t offset = (uintptr_t)p - base;
+
+	if (offset > sz - mopts.malloc_guard) {
+		ret = 0;
+		goto done;
+	}
+
+	ret = sz - mopts.malloc_guard - offset;
+
+done:
+	if (argpool != pool) {
+		pool->active--;
+		_MALLOC_UNLOCK(pool->mutex);
+		_MALLOC_LOCK(argpool->mutex);
+		argpool->active++;
+	}
+        return ret;
+}
+
+size_t
+o___malloc_object_size(const void *p)
+{
+	size_t ret;
+	struct dir_info *d;
+
+	if (p == NULL)
+		return 0;
+
+	d = getpool();
+	if (d == NULL)
+		return __BIONIC_FORTIFY_UNKNOWN_SIZE;
+	_MALLOC_LOCK(d->mutex);
+	d->func = "__malloc_object_size():";
+	if (d->active++) {
+		malloc_recurse(d);
+		return 0;
+	}
+	ret = omalloc_object_size(d, (void *)p);
+	d->active--;
+	_MALLOC_UNLOCK(d->mutex);
+	return ret;
+
+}
+
 struct mallinfo
 o_mallinfo() {
 	struct mallinfo mi;

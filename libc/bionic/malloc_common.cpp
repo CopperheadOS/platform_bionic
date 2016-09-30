@@ -57,6 +57,7 @@ static constexpr MallocDispatch __libc_malloc_default_dispatch
     Malloc(mallinfo),
     Malloc(malloc),
     Malloc(malloc_usable_size),
+    Malloc(__malloc_object_size),
     Malloc(memalign),
     Malloc(posix_memalign),
 #if defined(HAVE_DEPRECATED_MALLOC_FUNCS)
@@ -125,6 +126,14 @@ extern "C" size_t malloc_usable_size(const void* mem) {
     return _malloc_usable_size(mem);
   }
   return Malloc(malloc_usable_size)(mem);
+}
+
+extern "C" size_t __malloc_object_size(const void* mem) {
+  auto ___malloc_object_size = __libc_globals->malloc_dispatch.__malloc_object_size;
+  if (__predict_false(___malloc_object_size != nullptr)) {
+    return ___malloc_object_size(mem);
+  }
+  return Malloc(__malloc_object_size)(mem);
 }
 
 extern "C" void* memalign(size_t alignment, size_t bytes) {

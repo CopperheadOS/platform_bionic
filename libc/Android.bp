@@ -1338,6 +1338,7 @@ cc_library_static {
         "bionic/NetdClientDispatch.cpp",
         "bionic/__bionic_get_shell_path.cpp",
         "bionic/__cmsg_nxthdr.cpp",
+        "bionic/__dynamic_object_size.cpp",
         "bionic/__errno.cpp",
         "bionic/__gnu_basename.cpp",
         "bionic/__libc_current_sigrtmax.cpp",
