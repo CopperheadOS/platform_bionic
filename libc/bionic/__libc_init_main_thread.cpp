@@ -28,22 +28,30 @@
 
 #include "libc_init_common.h"
 
+#include <limits.h>
+#include <sys/mman.h>
+
+#include <async_safe/log.h>
+
 #include "private/KernelArgumentBlock.h"
 #include "private/bionic_arc4random.h"
 #include "private/bionic_auxv.h"
 #include "private/bionic_defs.h"
 #include "private/bionic_globals.h"
-#include "private/bionic_ssp.h"
 #include "pthread_internal.h"
 
 extern "C" int __set_tls(void* ptr);
 extern "C" int __set_tid_address(int* tid_address);
 
 // Declared in "private/bionic_ssp.h".
-uintptr_t __stack_chk_guard = 0;
+__attribute__((aligned(PAGE_SIZE)))
+uintptr_t __stack_chk_guard[PAGE_SIZE / sizeof(uintptr_t)] = {0};
 
 void __libc_init_global_stack_chk_guard(KernelArgumentBlock& args) {
-  __libc_safe_arc4random_buf(&__stack_chk_guard, sizeof(__stack_chk_guard), args);
+  __libc_safe_arc4random_buf(&__stack_chk_guard[0], sizeof(__stack_chk_guard[0]), args);
+  if (mprotect(__stack_chk_guard, sizeof(__stack_chk_guard), PROT_READ) == -1) {
+    async_safe_fatal("mprotect __stack_chk_guard: %s", strerror(errno));
+  }
 }
 
 // Setup for the main thread. For dynamic executables, this is called by the
