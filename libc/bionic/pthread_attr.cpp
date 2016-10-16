@@ -184,7 +184,7 @@ static uintptr_t __get_main_stack_startstack() {
   return startstack;
 }
 
-static int __pthread_attr_getstack_main_thread(void** stack_base, size_t* stack_size) {
+int __pthread_attr_getstack_main_thread(void** stack_base, size_t* stack_size) {
   ErrnoRestorer errno_restorer;
 
   rlimit stack_limit;
