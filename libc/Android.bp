@@ -1400,6 +1400,7 @@ cc_library_static {
         "bionic/getpriority.cpp",
         "bionic/gettid.cpp",
         "bionic/grp_pwd.cpp",
+        "bionic/__map_guarded.cpp",
         "bionic/ifaddrs.cpp",
         "bionic/inotify_init.cpp",
         "bionic/ioctl.cpp",
