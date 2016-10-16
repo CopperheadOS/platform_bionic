@@ -1292,6 +1292,7 @@ cc_library_static {
         "bionic/__gnu_basename.cpp",
         "bionic/__libc_current_sigrtmax.cpp",
         "bionic/__libc_current_sigrtmin.cpp",
+        "bionic/__map_guarded.cpp",
         "bionic/abort.cpp",
         "bionic/accept.cpp",
         "bionic/accept4.cpp",

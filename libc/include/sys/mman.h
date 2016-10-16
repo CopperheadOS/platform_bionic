@@ -104,6 +104,9 @@ int madvise(void* __addr, size_t __size, int __advice);
 #endif
 int posix_madvise(void* __addr, size_t __size, int __advice) __INTRODUCED_IN(23);
 
+extern void* __map_guarded(size_t);
+extern int __unmap_guarded(void*, size_t);
+
 __END_DECLS
 
 #include <android/legacy_sys_mman_inlines.h>
