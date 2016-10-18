@@ -46,6 +46,7 @@ struct libc_globals {
 __LIBC_HIDDEN__ extern WriteProtected<libc_globals> __libc_globals;
 
 class KernelArgumentBlock;
+__LIBC_HIDDEN__ void __libc_init_dynamic_object_size(libc_globals* globals);
 __LIBC_HIDDEN__ void __libc_init_malloc(libc_globals* globals);
 __LIBC_HIDDEN__ void __libc_init_setjmp_cookie(libc_globals* globals, KernelArgumentBlock& args);
 __LIBC_HIDDEN__ void __libc_init_vdso(libc_globals* globals, KernelArgumentBlock& args);

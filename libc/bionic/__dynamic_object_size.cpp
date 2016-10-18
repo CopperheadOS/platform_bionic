@@ -10,3 +10,7 @@ extern "C" size_t __dynamic_object_size(const void* ptr) {
   }
   return __malloc_object_size(ptr);
 }
+
+void __libc_init_dynamic_object_size(libc_globals* globals) {
+  globals->enable_object_size_checks = true;
+}

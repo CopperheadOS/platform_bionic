@@ -330,8 +330,6 @@ static void malloc_fini_impl(void*) {
 
 // Initializes memory allocation framework once per process.
 static void malloc_init_impl(libc_globals* globals) {
-  globals->enable_object_size_checks = true;
-
   char value[PROP_VALUE_MAX];
 
   // If DEBUG_MALLOC_ENV_OPTIONS is set then it overrides the system properties.

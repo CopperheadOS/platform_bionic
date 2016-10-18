@@ -91,6 +91,7 @@ __noreturn void __libc_init(void* raw_args,
 
   __libc_init_AT_SECURE(args);
   __libc_init_common(args);
+  __libc_globals.mutate(__libc_init_dynamic_object_size);
 
   apply_gnu_relro();
 
