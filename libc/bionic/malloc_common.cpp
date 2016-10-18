@@ -426,8 +426,6 @@ static void* LoadSharedLibrary(const char* shared_lib, const char* prefix, Mallo
 
 // Initializes memory allocation framework once per process.
 static void malloc_init_impl(libc_globals* globals) {
-  globals->enable_object_size_checks = true;
-
   const char* prefix;
   const char* shared_lib;
   char prop[PROP_VALUE_MAX];
