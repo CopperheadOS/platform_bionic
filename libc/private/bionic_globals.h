@@ -41,6 +41,8 @@ struct libc_globals {
   long setjmp_cookie;
   bool enable_object_size_checks;
   void* main_thread_stack_top;
+  void* executable_start;
+  void* executable_end;
   MallocDispatch malloc_dispatch;
 };
 
