@@ -48,7 +48,7 @@ uintptr_t __stack_chk_guard[PAGE_SIZE / sizeof(uintptr_t)] = {0};
 
 void __libc_init_global_stack_chk_guard(KernelArgumentBlock& args) {
   __libc_safe_arc4random_buf(&__stack_chk_guard[0], sizeof(__stack_chk_guard[0]), args);
-#if __LP64__
+#if __LP64__ && !DEBUG_BUILD
   // Sacrifice 8 bits of entropy on 64-bit to mitigate non-terminated C string overflows
   __stack_chk_guard[0] &= ~(uintptr_t)0xff;
 #endif

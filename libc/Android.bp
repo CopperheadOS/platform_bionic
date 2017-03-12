@@ -108,6 +108,12 @@ cc_library_static {
     defaults: ["libc_defaults"],
     cflags: ["-fno-stack-protector"],
     name: "libc_stack_protector",
+
+    product_variables: {
+        debuggable: {
+            cflags: ["-DDEBUG_BUILD"],
+        },
+    },
 }
 
 // libc_init_static.cpp also needs to be built without stack protector,
