@@ -1709,6 +1709,12 @@ cc_library_static {
     cflags: ["-fvisibility=hidden"],
 
     name: "libc_malloc",
+
+    product_variables: {
+        debuggable: {
+            cflags: ["-DDEBUG_BUILD"],
+        },
+    },
 }
 
 // ========================================================
