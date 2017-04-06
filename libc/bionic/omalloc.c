@@ -127,8 +127,13 @@ static void _MALLOC_UNLOCK(int mutex)
  * when the 'J' option is enabled. Use SOME_JUNK right after alloc,
  * and SOME_FREEJUNK right before free.
  */
+#ifdef DEBUG_BUILD
 #define SOME_JUNK		0xd0	/* as in "Duh" :-) */
 #define SOME_FREEJUNK		0xdf
+#else
+#define SOME_JUNK		0
+#define SOME_FREEJUNK		0
+#endif
 
 #define MMAP(sz)	mmap(NULL, (sz), PROT_READ | PROT_WRITE, \
     MAP_ANON | MAP_PRIVATE, -1, 0)
