@@ -54,6 +54,7 @@
 #include "pthread_internal.h"
 
 extern "C" abort_msg_t** __abort_message_ptr;
+extern "C" void _malloc_init(int);
 extern "C" int __system_properties_init(void);
 extern "C" void _malloc_pre_fork(void);
 extern "C" void _malloc_post_fork_parent(void);
@@ -141,6 +142,7 @@ void __libc_init_common(KernelArgumentBlock& args) {
   pthread_atfork(arc4random_fork_handler, _thread_arc4_unlock, _thread_arc4_unlock);
 
   pthread_atfork(&_malloc_pre_fork, &_malloc_post_fork_parent, &_malloc_post_fork_child);
+  _malloc_init(1);
 
   __system_properties_init(); // Requires 'environ'.
 }
