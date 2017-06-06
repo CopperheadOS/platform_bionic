@@ -832,9 +832,12 @@ omalloc_poolinit(struct dir_info **dp)
 	*dp = d;
 
 	if (mopts.delayed_chunk_size) {
-		d->delayed_chunks = MMAP(mopts.delayed_chunk_size * 6 * sizeof(void *));
+		size_t quarantine_size = mopts.delayed_chunk_size * 6 * sizeof(void *);
+		d->delayed_chunks = MMAP(quarantine_size);
 		if (d->delayed_chunks == MAP_FAILED)
 			wrterror(NULL, "malloc init mmap failed", NULL);
+		prctl(PR_SET_VMA, PR_SET_VMA_ANON_NAME, d->delayed_chunks, quarantine_size,
+		    "malloc quarantine");
 		d->delayed_chunks_queue = d->delayed_chunks + mopts.delayed_chunk_size;
 		d->delayed_chunks_set = d->delayed_chunks_queue + mopts.delayed_chunk_size;
 	}
