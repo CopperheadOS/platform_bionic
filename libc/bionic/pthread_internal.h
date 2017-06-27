@@ -63,6 +63,7 @@ class pthread_internal_t {
   pid_t tid;
 
  private:
+  // accessed from vfork asm via offset of field, so don't put fields above this
   pid_t cached_pid_;
 
  public:
