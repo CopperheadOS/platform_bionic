@@ -135,7 +135,7 @@ static void _MALLOC_UNLOCK(int mutex)
 #define SOME_FREEJUNK		0
 #endif
 
-#if __LP64__
+#if __LP64__ && !DEBUG_BUILD
 #define CANARY_MASK (~(uintptr_t)0xff)
 #else
 #define CANARY_MASK (~(uintptr_t)0)
