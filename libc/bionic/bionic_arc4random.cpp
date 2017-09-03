@@ -39,8 +39,7 @@
 #include "private/KernelArgumentBlock.h"
 
 bool __libc_arc4random_has_unlimited_entropy() {
-  static bool have_urandom = access("/dev/urandom", R_OK) == 0;
-  return have_urandom;
+  return true;
 }
 
 void __libc_safe_arc4random_buf(void* buf, size_t n, KernelArgumentBlock& args) {

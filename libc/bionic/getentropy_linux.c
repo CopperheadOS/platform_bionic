@@ -200,11 +200,7 @@ getentropy_getrandom(void *buf, size_t len)
 	if (len > 256)
 		return (-1);
 	do {
-		/*
-		 * Use GRND_NONBLOCK to avoid blocking before the
-		 * entropy pool has been initialized
-		 */
-		ret = syscall(SYS_getrandom, buf, len, GRND_NONBLOCK);
+		ret = syscall(SYS_getrandom, buf, len, 0);
 	} while (ret == -1 && errno == EINTR);
 
 	if ((size_t)ret != len)
