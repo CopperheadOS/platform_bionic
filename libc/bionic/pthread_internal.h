@@ -29,6 +29,7 @@
 #pragma once
 
 #include <pthread.h>
+#include <signal.h>
 #include <stdatomic.h>
 
 #include "private/bionic_lock.h"
@@ -109,6 +110,8 @@ class pthread_internal_t {
   void* tls[BIONIC_TLS_SLOTS];
 
   pthread_key_data_t key_data[BIONIC_PTHREAD_KEY_COUNT];
+
+  sig_atomic_t in_malloc;
 
   /*
    * The dynamic linker implements dlerror(3), which makes it hard for us to implement this
