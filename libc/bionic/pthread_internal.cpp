@@ -128,3 +128,7 @@ pthread_internal_t* __pthread_internal_find(pthread_t thread_id) {
   }
   return nullptr;
 }
+
+extern "C" void set_in_malloc(bool in_malloc) {
+  __get_thread()->in_malloc = in_malloc;
+}
