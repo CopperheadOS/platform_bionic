@@ -197,8 +197,8 @@ int usleep(useconds_t __microseconds);
 int gethostname(char* __buf, size_t __buf_size);
 int sethostname(const char* __name, size_t __n) __INTRODUCED_IN(23);
 
-int brk(void* __addr) __warnattr("__brk is obsolete; use mmap instead");
-void* sbrk(ptrdiff_t __increment) __warnattr("sbrk is obsolete; use mmap instead");
+int brk(void* __addr);
+void* sbrk(ptrdiff_t __increment);
 
 int isatty(int __fd);
 char* ttyname(int __fd);
