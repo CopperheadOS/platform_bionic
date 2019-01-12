@@ -1968,6 +1968,8 @@ omemalign(struct dir_info *pool, size_t alignment, size_t sz, int zero_fill, voi
 	return p;
 }
 
+
+
 int
 o_posix_memalign(void **memptr, size_t alignment, size_t size)
 {
@@ -2032,6 +2034,47 @@ o_memalign(size_t boundary, size_t size)
 		return NULL;
 	} else
 		return p;
+}
+
+void *
+o_aligned_alloc(size_t alignment, size_t size)
+{
+	struct dir_info *d;
+	int saved_errno = errno;
+	void *r;
+
+	/* Make sure that alignment is a positive power of 2. */
+	if (((alignment - 1) & alignment) != 0 || alignment == 0) {
+		errno = EINVAL;
+		return NULL;
+	};
+	/* Per spec, size should be a multiple of alignment */
+	if ((size & (alignment - 1)) != 0) {
+		errno = EINVAL;
+		return NULL;
+	}
+
+	d = getpool();
+	if (d == NULL) {
+		_malloc_init(0);
+		d = getpool();
+	}
+	_MALLOC_LOCK(d->mutex);
+	d->func = "aligned_alloc";
+	if (d->active++) {
+		malloc_recurse(d);
+		return NULL;
+	}
+	r = omemalign(d, alignment, size, 0, CALLER);
+	d->active--;
+	_MALLOC_UNLOCK(d->mutex);
+	if (r == NULL) {
+		if (mopts.malloc_xmalloc)
+			wrterror(d, "out of memory", NULL);
+		return NULL;
+	}
+	errno = saved_errno;
+	return r;
 }
 
 #ifdef HAVE_DEPRECATED_MALLOC_FUNCS

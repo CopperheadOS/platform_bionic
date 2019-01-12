@@ -10,6 +10,7 @@ void *o_malloc(size_t size);
 void o_free(void *ptr);
 void *o_realloc(void *ptr, size_t size);
 void *o_calloc(size_t nmemb, size_t size);
+void *o_aligned_alloc(size_t alignment, size_t size);
 int o_posix_memalign(void **memptr, size_t alignment, size_t size);
 void *o_memalign(size_t boundary, size_t size);
 void *o_valloc(size_t size);
